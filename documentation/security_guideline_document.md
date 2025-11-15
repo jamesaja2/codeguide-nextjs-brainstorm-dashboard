@@ -1,116 +1,136 @@
-# Security Guidelines for codeguide-starter
+# Security Guidelines for codeguide-nextjs-brainstorm-dashboard
 
-This document defines mandatory security principles and implementation best practices tailored to the **codeguide-starter** repository. It aligns with Security-by-Design, Least Privilege, Defense-in-Depth, and other core security tenets. All sections reference specific areas of the codebase (e.g., `/app/api/auth/route.ts`, CSS files, environment configuration) to ensure practical guidance.
-
----
-
-## 1. Security by Design
-
-• Embed security from day one: review threat models whenever adding new features (e.g., new API routes, data fetching).
-• Apply “secure defaults” in Next.js configuration (`next.config.js`), enabling strict mode and disabling debug flags in production builds.
-• Maintain a security checklist in your PR template to confirm that each change has been reviewed against this guideline.
+## 1. Introduction
+This document outlines the security best practices and controls to be applied throughout the development, deployment, and operation of the `codeguide-nextjs-brainstorm-dashboard` project. It aligns with core security principles—security by design, least privilege, defense in depth—and provides actionable guidance tailored to this Next.js starter template.
 
 ---
 
-## 2. Authentication & Access Control
-
-### 2.1 Password Storage
-- Use **bcrypt** (or Argon2) with a per-user salt to hash passwords in `/app/api/auth/route.ts`.
-- Enforce a strong password policy on both client and server: minimum 12 characters, mixed case, numbers, and symbols.
-
-### 2.2 Session Management
-- Issue sessions via Secure, HttpOnly, SameSite=strict cookies. Do **not** expose tokens to JavaScript.
-- Implement absolute and idle timeouts. For example, invalidate sessions after 30 minutes of inactivity.
-- Protect against session fixation by regenerating session IDs after authentication.
-
-### 2.3 Brute-Force & Rate Limiting
-- Apply rate limiting at the API layer (e.g., using `express-rate-limit` or Next.js middleware) on `/api/auth` to throttle repeated login attempts.
-- Introduce exponential backoff or temporary lockout after N failed attempts.
-
-### 2.4 Role-Based Access Control (Future)
-- Define user roles in your database model (e.g., `role = 'user' | 'admin'`).
-- Enforce server-side authorization checks in every protected route (e.g., in `dashboard/layout.tsx` loader functions).
+## 2. Core Security Principles
+- **Security by Design:** Plan and review security at every phase: design, implementation, testing, and deployment.  
+- **Least Privilege:** Grant only the minimum permissions needed (database users, API keys, environment variables).  
+- **Defense in Depth:** Layer controls (network ACLs, middleware, authentication, input validation) so no single failure leads to compromise.  
+- **Fail Securely:** On errors or timeouts, return safe defaults and avoid leaking stack traces or sensitive data.  
+- **Secure Defaults:** Out-of-the-box configurations should be locked down (e.g., CORS, cookies, TLS).  
+- **Keep It Simple:** Favor clear, maintainable security mechanisms over complex, brittle solutions.
 
 ---
 
-## 3. Input Handling & Processing
-
-### 3.1 Validate & Sanitize All Inputs
-- On **client** (`sign-up/page.tsx`, `sign-in/page.tsx`): perform basic format checks (email regex, password length).
-- On **server** (`/app/api/auth/route.ts`): re-validate inputs with a schema validator (e.g., `zod`, `Joi`).
-- Reject or sanitize any unexpected fields to prevent injection attacks.
-
-### 3.2 Prevent Injection
-- If you introduce a database later, always use parameterized queries or an ORM (e.g., Prisma) rather than string concatenation.
-- Avoid dynamic `eval()` or template rendering with unsanitized user input.
-
-### 3.3 Safe Redirects
-- When redirecting after login or logout, validate the target against an allow-list to prevent open redirects.
-
----
-
-## 4. Data Protection & Privacy
-
-### 4.1 Encryption & Secrets
-- Enforce HTTPS/TLS 1.2+ for all front-end ↔ back-end communications.
-- Never commit secrets—use environment variables and a secrets manager (e.g., AWS Secrets Manager, Vault).
-
-### 4.2 Sensitive Data Handling
-- Do ​not​ log raw passwords, tokens, or PII in server logs. Mask or redact any user identifiers.
-- If storing PII in `data.json` or a future database, classify it and apply data retention policies.
+## 3. Authentication & Access Control
+1. **Better Auth Configuration**  
+   - Enforce strong password policies: minimum 12 characters, mixed case, digits, symbols.  
+   - Use Argon2 or bcrypt with unique per-user salts for storing credentials.  
+   - Ensure JWT tokens use a secure algorithm (e.g., HS256, RS256) and validate `exp`, `iat`, `aud`, and `iss` claims.  
+   - Rotate signing keys regularly and keep them in a secrets manager (e.g., AWS Secrets Manager, HashiCorp Vault).  
+2. **Session Management**  
+   - Set `Secure`, `HttpOnly`, and `SameSite=Strict` on cookies.  
+   - Enforce idle and absolute timeouts.  
+   - Invalidate sessions on logout or password change.  
+3. **Role-Based Access Control (RBAC)**  
+   - Extend the user schema with a `role` enum (`admin` | `participant`).  
+   - Implement server-side authorization checks on every `/api/admin/*` route and `/admin` pages.  
+   - Create higher-order middleware to guard route groups (`/(admin)`, `/(participant)`).
 
 ---
 
-## 5. API & Service Security
-
-### 5.1 HTTPS Enforcement
-- In production, redirect all HTTP traffic to HTTPS (e.g., via Vercel’s redirect rules or custom middleware).
-
-### 5.2 CORS
-- Configure `next.config.js` or API middleware to allow **only** your front-end origin (e.g., `https://your-domain.com`).
-
-### 5.3 API Versioning & Minimal Exposure
-- Version your API routes (e.g., `/api/v1/auth`) to handle future changes without breaking clients.
-- Return only necessary fields in JSON responses; avoid leaking internal server paths or stack traces.
+## 4. Network Security & IP Whitelisting
+- **Global Middleware**  
+  - Deploy a `middleware.ts` that reads `X-Forwarded-For` (or `req.ip`) and validates against `ALLOWED_CIDR` via a vetted library (e.g., `ip-cidr`).  
+  - Deny requests failing the check with a `403 Forbidden`.  
+- **Defense in Depth**  
+  - Complement application-level whitelisting with network controls (VPC security groups, firewall rules) in production.
 
 ---
 
-## 6. Web Application Security Hygiene
-
-### 6.1 CSRF Protection
-- Use anti-CSRF tokens for any state-changing API calls. Integrate Next.js CSRF middleware or implement synchronizer tokens stored in cookies.
-
-### 6.2 Security Headers
-- In `next.config.js` (or a custom server), add these headers:
-  - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
-  - `X-Content-Type-Options: nosniff`
-  - `X-Frame-Options: DENY`
-  - `Referrer-Policy: no-referrer-when-downgrade`
-  - `Content-Security-Policy`: restrict script/style/src to self and trusted CDNs.
-
-### 6.3 Secure Cookies
-- Set `Secure`, `HttpOnly`, `SameSite=Strict` on all cookies. Avoid storing sensitive data in `localStorage`.
-
-### 6.4 Prevent XSS
-- Escape or encode all user-supplied data in React templates. Avoid `dangerouslySetInnerHTML` unless content is sanitized.
+## 5. Input Handling & Validation
+- **Server-Side Validation**  
+  - Use Zod schemas in API routes for strong type-safe input validation.  
+  - Reject unknown or extra properties (`strict()` mode).  
+- **Prevent Injection**  
+  - All database access via Drizzle ORM’s parameterized queries.  
+  - Sanitize any dynamic SQL or raw queries.  
+- **File Uploads**  
+  - Validate file type, size, and content for CSV/Excel imports with `formidable` + `xlsx`.  
+  - Store uploads outside the webroot or with restrictive ACLs.  
+  - Scan files for malware if feasible.
 
 ---
 
-## 7. Infrastructure & Configuration Management
-
-- Harden your hosting environment (e.g., Vercel/Netlify) by disabling unnecessary endpoints (GraphQL/GraphiQL playgrounds in production).
-- Rotate secrets and API keys regularly via your secrets manager.
-- Maintain minimal privileges: e.g., database accounts should only have read/write on required tables.
-- Keep Node.js, Next.js, and all system packages up to date.
-
----
-
-## 8. Dependency Management
-
-- Commit and maintain `package-lock.json` to guarantee reproducible builds.
-- Integrate a vulnerability scanner (e.g., GitHub Dependabot, Snyk) to monitor and alert on CVEs in dependencies.
-- Trim unused packages; each added library increases the attack surface.
+## 6. Data Protection & Privacy
+- **Encryption In Transit**  
+  - Enforce HTTPS with TLS 1.2+ and HSTS (`Strict-Transport-Security` header).  
+- **Encryption At Rest**  
+  - Enable database-level encryption for sensitive columns (e.g., PII).  
+- **Secrets Management**  
+  - Do not commit secrets or credentials.  
+  - Use environment variables in CI/CD, backed by a secret store.  
+- **Data Minimization & Masking**  
+  - Return only necessary fields in API responses.  
+  - Mask or omit PII in logs and error messages.
 
 ---
 
-Adherence to these guidelines will ensure that **codeguide-starter** remains secure, maintainable, and resilient as it evolves. Regularly review and update this document to reflect new threats and best practices.
+## 7. API & Service Security
+- **HTTPS Everywhere**  
+  - Redirect all HTTP requests to HTTPS.  
+  - Use HSTS with an appropriate `max-age`.  
+- **Rate Limiting & Throttling**  
+  - Apply per-IP and per-user rate limits on sensitive endpoints (e.g., login, transaction creation).  
+- **CORS**  
+  - Restrict `Access-Control-Allow-Origin` to trusted frontend domains.  
+  - Avoid wildcard origins on production.  
+- **HTTP Verbs & Versioning**  
+  - Enforce correct HTTP methods (GET, POST, PUT, DELETE).  
+  - Implement API versioning in the URL path (`/api/v1/...`).
+
+---
+
+## 8. Web Application Security Hygiene
+- **CSRF Protection**  
+  - Use anti-CSRF tokens for all state-changing forms and API calls.  
+- **Security Headers**  
+  - `Content-Security-Policy` to restrict scripts, frames, and AJAX sources.  
+  - `X-Content-Type-Options: nosniff` to prevent MIME sniffing.  
+  - `X-Frame-Options: DENY` or CSP `frame-ancestors` to prevent clickjacking.  
+  - `Referrer-Policy: strict-origin-when-cross-origin`.  
+- **Subresource Integrity (SRI)**  
+  - Pin critical CDN assets (e.g., Chart.js) with SRI hashes.  
+- **Client-Side Storage**  
+  - Avoid storing tokens or sensitive data in `localStorage` or `sessionStorage`.
+
+---
+
+## 9. Infrastructure & Configuration Management
+- **Docker Security**  
+  - Use minimal base images and regularly update to patch vulnerabilities.  
+  - Run containers as non-root users.  
+- **Server Hardening**  
+  - Disable unused ports and services in production VMs or containers.  
+  - Disable debug/verbose logging in production.  
+- **TLS Configuration**  
+  - Enforce modern cipher suites and disable weak protocols (SSLv3, TLS 1.0/1.1).  
+- **Logging & Monitoring**  
+  - Centralize logs and mask PII.  
+  - Monitor authentication failures, high error rates, and abnormal traffic patterns.
+
+---
+
+## 10. Dependency Management
+- **Lockfiles**  
+  - Commit `package-lock.json` or `yarn.lock` for deterministic installs.  
+- **Vulnerability Scanning**  
+  - Integrate SCA tools (e.g., Dependabot, Snyk) in CI/CD to catch known CVEs.  
+- **Minimal Footprint**  
+  - Remove unused packages and audit transitive dependencies regularly.
+
+---
+
+## 11. Actionable Roadmap & Next Steps
+1. **Implement Global Middleware** for IP whitelisting and RBAC checks.  
+2. **Define Zod Schemas** for every API route; adopt strict validation.  
+3. **Configure HTTPS & HSTS** at the edge (load balancer or reverse proxy).  
+4. **Enable Rate Limiting** via middleware or API gateway.  
+5. **Integrate Secrets Manager** (e.g., AWS Secrets Manager) in CI/CD pipelines and runtime.  
+6. **Audit and Harden** the Docker images and host OS regularly.  
+7. **Deploy Security Headers & CSP** in Next.js custom server or via CDN.  
+
+By following these guidelines, the `codeguide-nextjs-brainstorm-dashboard` starter kit will form a strong, secure foundation for building and scaling your Brainstorm Dashboard application.

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Parkinsans } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { UserAgentProvider } from "@/contexts/UserAgentContext";
+import { Header } from "@/components/Header";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,9 +21,9 @@ const parkinsans = Parkinsans({
 });
 
 export const metadata: Metadata = {
-  title: "Codeguide Starter Fullstack",
+  title: "Brainstorm Dashboard",
   description:
-    "A modern Next.js starter with TypeScript, TailwindCSS, shadcn/ui, Better Auth, and Drizzle ORM",
+    "Next.js trading dashboard with news feed, stock transactions, and portfolio management",
 };
 
 export default function RootLayout({
@@ -40,7 +42,12 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <UserAgentProvider>
+            <div className="min-h-screen bg-gray-50">
+              <Header />
+              <main>{children}</main>
+            </div>
+          </UserAgentProvider>
         </ThemeProvider>
       </body>
     </html>
