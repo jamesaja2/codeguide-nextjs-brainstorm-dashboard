@@ -1,14 +1,32 @@
 flowchart TD
-  Start[Landing Page]
-  SignUpPage[Sign Up Page]
-  SignInPage[Sign In Page]
-  AuthAPI[Authentication API Endpoint]
-  DashboardPage[Dashboard Page]
-  Start -->|Select Sign Up| SignUpPage
-  Start -->|Select Sign In| SignInPage
-  SignUpPage -->|Submit Credentials| AuthAPI
-  SignInPage -->|Submit Credentials| AuthAPI
-  AuthAPI -->|Success| DashboardPage
-  AuthAPI -->|Error| SignUpPage
-  AuthAPI -->|Error| SignInPage
-  DashboardPage -->|Click Logout| Start
+  Start[User visits site] --> CheckAuth[Check Authentication]
+  CheckAuth -->|Not Authenticated| SignIn[Redirect to Sign In]
+  SignIn --> CheckAuth
+  CheckAuth -->|Authenticated| CheckRole[Check User Role]
+  CheckRole -->|Admin| AdminDashboard[Admin Panel]
+  CheckRole -->|Participant| ParticipantDashboard[Participant Dashboard]
+  AdminDashboard --> AdminParticipants[Manage Participants]
+  AdminDashboard --> AdminNews[Manage News]
+  AdminDashboard --> AdminCompanies[Manage Companies]
+  AdminDashboard --> AdminTransactions[Manage Transactions]
+  ParticipantDashboard --> Home[Dashboard Home]
+  ParticipantDashboard --> Transactions[Transactions Page]
+  ParticipantDashboard --> Portfolio[Portfolio Page]
+  ParticipantDashboard --> OBSOverlay[OBS Live Overlay]
+  AdminParticipants --> APIAdminParticipants[API Admin Participants]
+  AdminNews --> APIAdminNews[API Admin News]
+  AdminCompanies --> APIAdminCompanies[API Admin Companies]
+  AdminTransactions --> APIAdminTransactions[API Admin Transactions]
+  Home --> APINews[API Fetch News]
+  Transactions --> APITransactions[API Transactions]
+  Portfolio --> APIPortfolio[API Portfolio]
+  OBSOverlay --> APISSE[API Live Stream]
+  APIAdminParticipants --> ORM[Drizzle ORM]
+  APIAdminNews --> ORM
+  APIAdminCompanies --> ORM
+  APIAdminTransactions --> ORM
+  APINews --> ORM
+  APITransactions --> ORM
+  APIPortfolio --> ORM
+  APISSE --> ORM
+  ORM --> DB[PostgreSQL Database]

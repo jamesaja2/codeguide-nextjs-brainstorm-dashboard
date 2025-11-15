@@ -1,117 +1,97 @@
-# Project Requirements Document: codeguide-starter
-
----
+# Project Requirements Document (PRD)
 
 ## 1. Project Overview
 
-The **codeguide-starter** project is a boilerplate web application that provides a ready-made foundation for any web project requiring secure user authentication and a post-login dashboard. It sets up the common building blocks—sign-up and sign-in pages, API routes to handle registration and login, and a simple dashboard interface driven by static data. By delivering this skeleton, it accelerates development time and ensures best practices are in place from day one.
+**Brainstorm Dashboard** is a full-stack web application built on Next.js, tailored to power a financial competition platform. It provides two main user roles—**Admin** and **Participant**—each with dedicated interfaces. Admins can manage news, companies, participants, and transactions via CRUD panels, plus upload participant lists through CSV/Excel imports. Participants can view a personalized dashboard: real-time stock charts, transaction forms, portfolio summaries, and a live OBS overlay for competition updates.
 
-This starter kit is being built to solve the friction developers face when setting up repeated common tasks: credential handling, session management, page routing, and theming. Key objectives include: 1) delivering a fully working authentication flow (registration & login), 2) providing a gated dashboard area upon successful login, 3) establishing a clear, maintainable project structure using Next.js and TypeScript, and 4) demonstrating a clean theming approach with global and section-specific CSS. Success is measured by having an end-to-end login journey in under 200 lines of code and zero runtime type errors.
-
----
+This project addresses the need for a secure, type-safe, and fast-to-market solution. It leverages a pre-built Next.js starter with authentication, a protected `/dashboard`, and Postgres integration through Drizzle ORM. Key objectives include: 1) Role-based access control with IP whitelisting, 2) Real-time updates for participants via SSE or WebSockets, 3) A sleek, responsive UI with shadcn/ui and Tailwind CSS. Success is measured by a fully functional MVP where admins can manage all data and participants can trade virtually with live feedback.
 
 ## 2. In-Scope vs. Out-of-Scope
 
-### In-Scope (Version 1)
-- User registration (sign-up) form with validation
-- User login (sign-in) form with validation
-- Next.js API routes under `/api/auth/route.ts` handling:
-  - Credential validation
-  - Password hashing (e.g., bcrypt)
-  - Session creation or JWT issuance
-- Protected dashboard pages under `/dashboard`:
-  - `layout.tsx` wrapping dashboard content
-  - `page.tsx` rendering static data from `data.json`
-- Global application layout in `/app/layout.tsx`
-- Basic styling via `globals.css` and `dashboard/theme.css`
-- TypeScript strict mode enabled
+### In-Scope (v1)
+- User authentication with **Better Auth** (sign-up, sign-in, JWT sessions).
+- Role-based dashboards: `/admin` for Admins, `/dashboard` for Participants.
+- IP whitelisting middleware using `ALLOWED_CIDR` and `X-Forwarded-For` header.
+- Admin CRUD APIs and UI for News, Companies, Participants, Transactions (with Zod validation).
+- CSV/Excel import endpoint for bulk participant uploads (using Formidable + xlsx).
+- Participant dashboard pages: Home (charts + news), Transactions (form + real-time calculations), Portfolio (tables).
+- Real-time competition overlay: Server-Sent Events (SSE) or WebSockets for live notifications and "Start/End Day" signals.
+- Type-safe data modeling with **Drizzle ORM** on **PostgreSQL**.
+- Responsive UI built with **shadcn/ui** components and **Tailwind CSS**.
+- Docker setup for local Postgres and Next.js environment.
 
-### Out-of-Scope (Later Phases)
-- Integration with a real database (PostgreSQL, MongoDB, etc.)
-- Advanced authentication flows (password reset, email verification, MFA)
-- Role-based access control (RBAC)
-- Multi-tenant or white-label theming
-- Unit, integration, or end-to-end testing suites
-- CI/CD pipeline and production deployment scripts
-
----
+### Out-of-Scope (v1)
+- Mobile (React Native or native) clients.
+- Payment or billing integration.
+- Advanced analytics dashboards or machine learning.
+- Multi-tenant architecture or white-labeling.
+- Third-party exchange integrations for real money trading.
 
 ## 3. User Flow
 
-A new visitor lands on the root URL and sees a welcome page with options to **Sign Up** or **Sign In**. If they choose Sign Up, they fill in their email, password, and hit “Create Account.” The form submits to `/api/auth/route.ts`, which hashes the password, creates a new user session or token, and redirects them to the dashboard. If any input is invalid, an inline error message explains the issue (e.g., “Password too short”).
+When a **new Participant** arrives, they sign up via email and password on `/auth/signup`. After verifying their session, they land on `/dashboard/home` where they see a UTC+7 clock, latest news feed, and a real-time line chart of stock prices. They navigate to `/dashboard/transactions` via the side menu, fill out buy/sell quantities, watch live total calculations, and submit trades. Their portfolio updates instantly on `/dashboard/portfolio`. A server-sent overlay feed pushes competition updates to their OBS application via a `/obs` endpoint.
 
-Once authenticated, the user is taken to the `/dashboard` route. Here they see a sidebar or header defined by `dashboard/layout.tsx`, and the main panel pulls in static data from `data.json`. They can log out (if that control is present), but otherwise their entire session is managed by server-side cookies or tokens. Returning users go directly to Sign In, submit credentials, and upon success they land back on `/dashboard`. Any unauthorized access to `/dashboard` redirects back to Sign In.
-
----
+An **Admin** logs in through `/auth/signin`, lands on `/admin/home`, then navigates to subpages: `/admin/news`, `/admin/companies`, `/admin/participants`, and `/admin/transactions`. They can click “Add” or “Edit” to open modal forms, with validation via Zod. Bulk participant CSV uploads happen at `/admin/participants/import`. All admin routes are protected by RBAC checks in the layout middleware and API route handlers.
 
 ## 4. Core Features
 
-- **Sign-Up Page (`/app/sign-up/page.tsx`)**: Form fields for email & password, client-side validation, POST to `/api/auth`.
-- **Sign-In Page (`/app/sign-in/page.tsx`)**: Form fields for email & password, client-side validation, POST to `/api/auth`.
-- **Authentication API (`/app/api/auth/route.ts`)**: Handles both registration and login based on HTTP method, integrates password hashing (bcrypt) and session or JWT logic.
-- **Global Layout (`/app/layout.tsx` + `globals.css`)**: Shared header, footer, and CSS resets across all pages.
-- **Dashboard Layout (`/app/dashboard/layout.tsx` + `dashboard/theme.css`)**: Sidebar or top nav for authenticated flows, section-specific styling.
-- **Dashboard Page (`/app/dashboard/page.tsx`)**: Reads `data.json`, renders it as cards or tables.
-- **Static Data Source (`/app/dashboard/data.json`)**: Example dataset to demo dynamic rendering.
-- **TypeScript Configuration**: `tsconfig.json` with strict mode and path aliases (if any).
-
----
+- **Authentication & RBAC**: Secure sign-up/sign-in, JWT sessions, `role` field (`admin` | `participant`).
+- **IP Whitelisting**: Global middleware reading `ALLOWED_CIDR` and incoming IP via `X-Forwarded-For`.
+- **Admin Panel**:
+  - CRUD APIs (`/api/admin/[model]`) for News, Companies, Participants, Transactions.
+  - Zod schema validation on all inputs.
+  - CSV/Excel import endpoint (Formidable + xlsx).
+- **Participant Dashboard**:
+  - Home: stock charts (Chart.js + react-chartjs-2), news feed (SWR).
+  - Transactions: dynamic form with real-time calculations.
+  - Portfolio: table listing holdings and P/L.
+- **Real-Time Overlay**:
+  - SSE or WebSockets for push notifications and event signals.
+  - `/obs` endpoint to consume live streams in OBS.
+- **Type-Safe ORM**: Drizzle ORM models for Users, News, Companies, Participants, Transactions.
+- **UI Components**: shadcn/ui + Tailwind CSS (Tables, Inputs, Modals).
 
 ## 5. Tech Stack & Tools
 
-- **Framework**: Next.js (App Router) for file-based routing, SSR/SSG, and API routes.
-- **Language**: TypeScript for type safety.
-- **UI Library**: React 18 for component-based UI.
-- **Styling**: Plain CSS via `globals.css` (global reset) and `theme.css` (sectional styling). Can easily migrate to CSS Modules or Tailwind in the future.
-- **Backend**: Node.js runtime provided by Next.js API routes.
-- **Password Hashing**: bcrypt (npm package).
-- **Session/JWT**: NextAuth.js or custom JWT logic (to be decided in implementation).
-- **IDE & Dev Tools**: VS Code with ESLint, Prettier extensions. Optionally, Cursor.ai for AI-assisted coding.
-
----
+- **Frontend**: Next.js (App Router), React, TypeScript.
+- **UI**: shadcn/ui component library, Tailwind CSS.
+- **Auth**: Better Auth (JWT-based).
+- **ORM & DB**: Drizzle ORM, PostgreSQL (Docker).
+- **Data Fetching**: SWR for client-side hooks.
+- **Date/Time**: Day.js for UTC+7 clock.
+- **Charting**: Chart.js + react-chartjs-2.
+- **File Handling**: Formidable (multipart parsing), xlsx (Excel/CSV parsing).
+- **Real-Time**: Server-Sent Events or Socket.IO (`ws` or `socket.io`).
+- **Validation**: Zod for request schemas.
+- **Middleware**: Next.js `middleware.ts` for IP filtering.
+- **Dev Tools**: Docker, VS Code (with Cursor/Windsurf plugins optional).
 
 ## 6. Non-Functional Requirements
 
-- **Performance**: Initial page load under 200 ms on a standard broadband connection. API responses under 300 ms.
-- **Security**:
-  - HTTPS only in production.
-  - Proper CORS, CSRF protection for API routes.
-  - Secure password storage (bcrypt with salt).
-  - No credentials or secrets checked into version control.
-- **Scalability**: Structure must support adding database integration, caching layers, and advanced auth flows without rewiring core app.
-- **Usability**: Forms should give real-time feedback on invalid input. Layout must be responsive (mobile > 320 px).
-- **Maintainability**: Code must adhere to TypeScript strict mode. Linting & formatting enforced by ESLint/Prettier.
-
----
+- **Performance**: Page load ≤ 2s; API responses ≤ 100ms under normal load.
+- **Security**: TLS for all endpoints; JWT session tokens; RBAC checks; OWASP Top 10 compliance.
+- **Scalability**: Modular route groups; ability to add more models and pages.
+- **Usability**: Responsive breakpoints (mobile, tablet, desktop); accessible components (ARIA, keyboard navigation).
+- **Reliability**: 99.9% uptime; retry logic for SSE/WebSocket reconnects.
 
 ## 7. Constraints & Assumptions
 
-- **No Database**: Dashboard uses only `data.json`; real database integration is deferred.
-- **Node Version**: Requires Node.js >= 14.
-- **Next.js Version**: Built on Next.js 13+ App Router.
-- **Authentication**: Assumes availability of bcrypt or NextAuth.js at implementation time.
-- **Hosting**: Targets serverless or Node.js-capable hosting (e.g., Vercel, Netlify).
-- **Browser Support**: Modern evergreen browsers; no IE11 support required.
-
----
+- Next.js App Router is used (no pages directory).
+- `Better Auth` must support role-based JWT claims.
+- Postgres runs in Docker locally; migrations via Drizzle Kit.
+- Network traffic passes through a proxy injecting `X-Forwarded-For`.
+- SSE/WebSocket support is permitted on the hosting platform.
+- Environment variables (`DATABASE_URL`, `ALLOWED_CIDR`, `JWT_SECRET`) are correctly set.
 
 ## 8. Known Issues & Potential Pitfalls
 
-- **Static Data Limitation**: `data.json` is only for demo. A real API or database will be needed to avoid stale data.
-  *Mitigation*: Define a clear interface for data fetching so swapping to a live endpoint is trivial.
-
-- **Global CSS Conflicts**: Using global styles can lead to unintended overrides.
-  *Mitigation*: Plan to migrate to CSS Modules or utility-first CSS in Phase 2.
-
-- **API Route Ambiguity**: Single `/api/auth/route.ts` handling both sign-up and sign-in could get complex.
-  *Mitigation*: Clearly branch on HTTP method (`POST /register` vs. `POST /login`) or split into separate files.
-
-- **Lack of Testing**: No test suite means regressions can slip in.
-  *Mitigation*: Build a minimal Jest + React Testing Library setup in an early iteration.
-
-- **Error Handling Gaps**: Client and server must handle edge cases (network failures, malformed input).
-  *Mitigation*: Define a standard error response schema and show user-friendly messages.
+- **IP Whitelisting Accuracy**: Reliant on correct `X-Forwarded-For` parsing; mitigate by using proven libraries like `ip-address` and extensive testing.
+- **Drizzle Migrations**: Schema changes require careful `generate:pg` and `push:pg` commands; versioning must be kept consistent.
+- **CSV/Excel Edge Cases**: Malformed files may crash the import; add robust error handling and user feedback.
+- **SSE/WS Scaling**: Connection limits on serverless environments; consider fallback polling or a dedicated WebSocket server.
+- **Stale SWR Data**: Ensure correct revalidation triggers after writes; use `mutate()` calls post-submission.
+- **CORS & Headers**: API routes and OBS endpoint must allow correct origin headers; configure in `next.config.js`.
 
 ---
 
-This PRD should serve as the single source of truth for the AI model or any developer generating the next set of technical documents: Tech Stack Doc, Frontend Guidelines, Backend Structure, App Flow, File Structure, and IDE Rules. It contains all functional and non-functional requirements with no ambiguity, enabling seamless downstream development.
+This PRD serves as the single source of truth for all subsequent technical documents: Tech Stack, Frontend Guidelines, Backend Structure, and more. It leaves no ambiguity about scope, user journeys, features, or constraints, ensuring a smooth transition to implementation.
